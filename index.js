@@ -1,8 +1,9 @@
-import fs from "fs";
 import fetch from "node-fetch";
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import mongoose from "mongoose";
+import GameStats from "./models/game-stats.js";
 
 const app = express();
 app.use(bodyParser.json());
@@ -13,6 +14,14 @@ app.use(
     credentials: true,
   })
 );
+
+let dbPath =
+  "mongodb+srv://barstool_app:Test123@cluster0.kklnp.mongodb.net/test";
+
+mongoose
+  .connect(dbPath, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB successfully connected!"))
+  .catch((err) => console.log(err));
 
 let nbaUrl =
   "https://chumley.barstoolsports.com/dev/data/games/6c974274-4bfc-4af8-a9c4-8b926637ba74.json";
@@ -30,18 +39,38 @@ app.get("/api/nba", (req, res) => {
     .then((res) => res.json())
     .then((json) => {
       gameData = json;
-      console.log(gameData);
+      // console.log(gameData);
       res.send(gameData);
     });
 });
 
-app.get("/api/mlb", (req, res) => {
-  fetch(mlbUrl, settings)
-    .then((res) => res.json())
-    .then((json) => {
-      gameData = json;
-      console.log(gameData);
-      res.send(gameData);
+app.post("/api/mlb", (req, res) => {
+  const { previousRequest, currentTime } = req.body;
+  GameStats.findOne()
+    .limit(1)
+    .sort({ $natural: -1 })
+    .then((game) => {
+      if (game) {
+        if (game.timeFetched.getTime() + 15000 < currentTime) {
+          console.log("data coming from API");
+          fetch(mlbUrl, settings)
+            .then((res) => res.json())
+            .then((json) => {
+              gameData = json;
+              res.send(gameData);
+              const newGameStats = new GameStats({
+                timeFetched: Date.now(),
+                data: gameData,
+              });
+              newGameStats.save();
+            });
+        } else {
+          console.log("DATA SHOULD BE COMING FROM DB");
+          res.send(game.data);
+        }
+      } else if (!game) {
+        console.log("ERROR ERROR ERROR");
+      }
     });
 });
 
