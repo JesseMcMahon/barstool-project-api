@@ -34,16 +34,16 @@ let gameData = [];
 
 app.use(express.static("public"));
 
-app.post("/api/nba", (req, res) => {
-  // console.log("in NBA api");
+app.post("/api", (req, res) => {
   const { currentTime, league } = req.body;
+  let url = league === "nba" ? nbaUrl : mlbUrl;
   GameStats.findOne({ league: league })
     .limit(1)
     .sort({ $natural: -1 })
     .then((game) => {
       if (game) {
         if (game.timeFetched.getTime() + 15000 < currentTime) {
-          fetch(nbaUrl, settings)
+          fetch(url, settings)
             .then((res) => res.json())
             .then((json) => {
               gameData = json;
@@ -53,47 +53,13 @@ app.post("/api/nba", (req, res) => {
                 data: gameData,
                 league: league,
               });
-              console.log("Data coming from NBA api");
               newGameStats.save();
             });
         } else {
-          console.log("Data coming from NBA DB");
           res.send(game.data);
         }
       } else if (!game) {
-        console.log("ERROR ERROR ERROR");
-      }
-    });
-});
-
-app.post("/api/mlb", (req, res) => {
-  // console.log("In MLB api");
-  const { previousRequest, currentTime, league } = req.body;
-  GameStats.findOne({ league: league })
-    .limit(1)
-    .sort({ $natural: -1 })
-    .then((game) => {
-      if (game) {
-        if (game.timeFetched.getTime() + 15000 < currentTime) {
-          fetch(mlbUrl, settings)
-            .then((res) => res.json())
-            .then((json) => {
-              gameData = json;
-              res.send(gameData);
-              const newGameStats = new GameStats({
-                timeFetched: Date.now(),
-                data: gameData,
-                league: league,
-              });
-              console.log("data coming from MLB api");
-              newGameStats.save();
-            });
-        } else {
-          console.log("Data coming from MLB DB");
-          res.send(game.data);
-        }
-      } else if (!game) {
-        console.log("ERROR ERROR ERROR");
+        res.status(404);
       }
     });
 });
